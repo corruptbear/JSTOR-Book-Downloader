@@ -20,18 +20,14 @@ from PyPDF2 import PdfFileWriter, PdfFileReader
 
 
 
-#modify book address here
+#modify book address here, you can use the ones here to test the script
 url="https://www.jstor.org/stable/10.1525/j.ctv1xxxq7"
 #url="https://www.jstor.org/stable/j.ctvbj7gjn"
+
 #modify parent directory here
+#the book will be saved to a new directory under the parent directory
 parent_directory = "/Users/lws/Documents/School Downloads/"
 
-
-
-#print(list((glob.glob(parent_directory+"New Folder 2022-11-01 21_07_51"+'/*'))))
-
-#modify driver path here
-#driver_path = "/usr/local/bin/chromedriver" 
 #modify this if you do not need merged pdf book file
 merge = True
 
@@ -42,12 +38,10 @@ time_for_recaptcha = 100
 terms_accepted = False
 
 def accept_cookie():
-    #<button id="onetrust-accept-btn-handler">OK, proceed</button>
+    
     accept_button = driver.find_element('id',"onetrust-accept-btn-handler")
     accept_button.click()
     
-
-
 def accept_terms():
     #dealing with possible recaptcha
     wait = WebDriverWait(driver, time_for_recaptcha)
@@ -82,6 +76,7 @@ def merge_JSTOR_chapters(input_paths,output_path):
  
     with open(output_path, 'wb') as fh:
         pdf_writer.write(fh)
+
         
 directory = parent_directory + "New Folder " + datetime.now().strftime('%Y-%m-%d %H_%M_%S') + "/"
 os.mkdir(directory)
@@ -122,45 +117,53 @@ accept_cookie()
 
 sleep(0.5)
 
+#get the book title str
 book_title = driver.find_element('xpath',"//*[@id='content']/div[2]/book-view-pharos-layout/div[1]/div[1]/div[1]/div[2]/book-view-pharos-heading").text
 print(book_title)
 
+#get the download button containers
 chapter_links = driver.find_elements('tag name',"mfe-download-pharos-link")
 
-print('download links:',len(chapter_links),[x.text for x in chapter_links]) #all "download"
-
+#get the chapter title strs
 chapter_titles = driver.find_elements('tag name',"book-view-pharos-link")[1:-1]
 chapter_title_texts = [x.text for x in chapter_titles]
-print(chapter_title_texts)
 
 num_chapters = len(chapter_links)
+
 print("number of files:",num_chapters)
+print(chapter_title_texts)
 
 #click the download
 for i in range(num_chapters):
     link = chapter_links[i]
     
-    #print("to download: "+ title_text)
-    
+    #move the download button into view
     driver.execute_script("arguments[0].scrollIntoView(true);",link)
     
+    #handle the shadow root
     shadow_root = driver.execute_script('return arguments[0].shadowRoot', link)
     slink = shadow_root.find_element('id','link-element')
     
-    #To resolve "Other element would receive the click" error if use llink.click()
+    #To resolve "Other element would receive the click" error if use slink.click() directly
     actions = ActionChains(driver)
     actions.move_to_element(slink).click().perform()
     
+    #handle term acceptance
     if terms_accepted == False:
         accept_terms()
     
+    #handle possible emergence of captcha again    
+    wait = WebDriverWait(driver, time_for_recaptcha)
+    wait.until(EC.presence_of_element_located((By.CLASS_NAME,"download__mount-point")))
+    
+    #reduce download speed to avoid trigger captcha too frequently
     sleep(1.5)
 
 #rename the chapters
 for i in range(num_chapters):
     title_text = chapter_title_texts[i]
     current_name = directory + url.split('/')[-1] + '.'+str(i+1)+'.pdf'
-    print(current_name)
+    print('rename:',current_name,' to:',title_text)
     os.rename(current_name, directory+title_text+".pdf") 
     
     
