@@ -1,5 +1,10 @@
 # README
 
+This python script automates the JSTOR download process for books with many individual chapters, for example,
+https://www.jstor.org/stable/10.1525/j.ctv1xxxq7
+
+In addition to download all individual chapters, it will also merge the chapters into a single pdf file.
+
 ## Prerequisite
 
 ### Access to JSTOR 
