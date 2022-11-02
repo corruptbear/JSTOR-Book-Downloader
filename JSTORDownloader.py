@@ -5,18 +5,34 @@ from datetime import datetime
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium_stealth import stealth
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.by import By
+from selenium.webdriver import ActionChains
+
 
 import os
 import glob
 
+import random
+
 from PyPDF2 import PdfFileWriter, PdfFileReader
 
+
+
 #modify book address here
-url="https://www.jstor.org/stable/10.7722/j.ctt1x71xw"
+url="https://www.jstor.org/stable/10.1525/j.ctv1xxxq7"
+#url="https://www.jstor.org/stable/j.ctvbj7gjn"
 #modify parent directory here
 parent_directory = "/Users/lws/Documents/School Downloads/"
+
+
+
+#print(list((glob.glob(parent_directory+"New Folder 2022-11-01 21_07_51"+'/*'))))
+
 #modify driver path here
-driver_path = "/usr/local/bin/chromedriver" 
+#driver_path = "/usr/local/bin/chromedriver" 
 #modify this if you do not need merged pdf book file
 merge = True
 
@@ -26,11 +42,25 @@ time_for_recaptcha = 100
 #To handle "Terms and Conditions" Agreement
 terms_accepted = False
 
+def accept_cookie():
+    #<button id="onetrust-accept-btn-handler">OK, proceed</button>
+    accept_button = driver.find_element('id',"onetrust-accept-btn-handler")
+    accept_button.click()
+    
+
+
 def accept_terms():
     #dealing with possible recaptcha
     wait = WebDriverWait(driver, time_for_recaptcha)
-    wait.until(EC.presence_of_element_located((By.ID,"acceptTC")))
-    driver.find_element_by_id("acceptTC").click()
+    wait.until(EC.presence_of_element_located((By.TAG_NAME,"mfe-download-pharos-button")))
+    
+    accept_button = driver.find_elements('tag name',"mfe-download-pharos-button")[1]
+    shadow_root = driver.execute_script('return arguments[0].shadowRoot', accept_button)
+    sbutton= shadow_root.find_element('id','button-element')
+    
+    actions = ActionChains(driver)
+    actions.move_to_element(sbutton).click().perform()
+    
     sleep(0.2)
     print("terms and conditions accepted!")
     global terms_accepted 
@@ -54,56 +84,86 @@ def merge_JSTOR_chapters(input_paths,output_path):
     with open(output_path, 'wb') as fh:
         pdf_writer.write(fh)
         
-directory = parent_directory + "New Folder " + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + "/"
+directory = parent_directory + "New Folder " + datetime.now().strftime('%Y-%m-%d %H_%M_%S') + "/"
 os.mkdir(directory)
 
 #setting up the webdriver
 chrome_options = webdriver.ChromeOptions()
 prefs = {"plugins.always_open_pdf_externally": True,"download.default_directory":directory,"download.prompt_for_download":False,"download.directory_upgrade":True,"safebrowsing.enabled":True,"download.extensions_to_open": "applications/pdf"}
 chrome_options.add_experimental_option("prefs",prefs)
-driver = webdriver.Chrome(driver_path, options=chrome_options) 
+chrome_options.add_argument( '--disable-blink-features=AutomationControlled' )
+
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=chrome_options)
+
+#fake user agent
+driver.execute_cdp_cmd('Network.setUserAgentOverride', {"userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.97 Safari/537.36'})
+print(driver.execute_script("return navigator.userAgent;"))
+
+
+#stealth(driver,
+#        languages=["en-US", "en"],
+#        vendor="Google Inc.",
+#        platform="Win32",
+#        webgl_vendor="Intel Inc.",
+#        renderer="Intel Iris OpenGL Engine",
+#        fix_hairline=True,
+#        )
 
 #navigate to the book page        
 driver.get(url)
 
 #dealing with possible recaptcha
 wait = WebDriverWait(driver, time_for_recaptcha)
-element = wait.until(EC.presence_of_element_located((By.CLASS_NAME,"pdfLink")))
+#until recaptcha is done
+element = wait.until(EC.presence_of_element_located((By.CLASS_NAME,"download__mount-point")))
 
 sleep(0.5)   
 
-book_title = driver.find_element_by_xpath("//*[@id='content']/div[1]/div[2]/div[1]/div/div/div[1]/div/div/div[2]/h1").text
+accept_cookie()
+
+sleep(0.5)
+
+book_title = driver.find_element('xpath',"//*[@id='content']/div[2]/book-view-pharos-layout/div[1]/div[1]/div[1]/div[2]/book-view-pharos-heading").text
 print(book_title)
 
-chapter_links = driver.find_elements_by_class_name("pdfLink")
-chapter_titles = driver.find_elements_by_class_name("chapter-title")
+chapter_links = driver.find_elements('tag name',"mfe-download-pharos-link")
+
+print('download links:',len(chapter_links),[x.text for x in chapter_links]) #all "download"
+
+chapter_titles = driver.find_elements('tag name',"book-view-pharos-link")[1:-1]
+chapter_title_texts = [x.text for x in chapter_titles]
+print(chapter_title_texts)
 
 num_chapters = len(chapter_links)
 print("number of files:",num_chapters)
 
-#collect urls first to avoid stale element error
-download_urls = [chapter_link.get_attribute("href") for chapter_link in chapter_links]
-chapter_title_texts = [chapter_title.find_element_by_xpath(".//div[2]/div[1]/a/span").text for chapter_title in chapter_titles]
-
+#click the download
 for i in range(num_chapters):
-    download_url = download_urls[i] 
-    title_text = chapter_title_texts[i]
-
-    print("to download: "+download_url)
+    link = chapter_links[i]
     
-    driver.get(download_url)
+    #print("to download: "+ title_text)
     
-    sleep(0.05)
+    driver.execute_script("arguments[0].scrollIntoView(true);",link)
+    
+    shadow_root = driver.execute_script('return arguments[0].shadowRoot', link)
+    slink = shadow_root.find_element('id','link-element')
+    
+    #To resolve "Other element would receive the click" error if use llink.click()
+    actions = ActionChains(driver)
+    actions.move_to_element(slink).click().perform()
     
     if terms_accepted == False:
         accept_terms()
     
-    while get_latest_file(directory).find(".crdownload")!=-1:
-        sleep(0.1)
-        
-    #rename latest downloaded file
-    os.rename(get_latest_file(directory), directory+title_text+".pdf") 
-    print(directory+title_text+".pdf"+" downloaded")
+    sleep(1.5)
+
+#rename the chapters
+for i in range(num_chapters):
+    title_text = chapter_title_texts[i]
+    current_name = directory + url.split('/')[-1] + '.'+str(i+1)+'.pdf'
+    print(current_name)
+    os.rename(current_name, directory+title_text+".pdf") 
+    
     
 #rename folder
 new_directory_name = parent_directory + book_title
