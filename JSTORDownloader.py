@@ -21,8 +21,7 @@ from PyPDF2 import PdfFileWriter, PdfFileReader
 
 
 #modify book address here, you can use the ones here to test the script
-url="https://www.jstor.org/stable/10.1525/j.ctv1xxxq7"
-#url="https://www.jstor.org/stable/j.ctvbj7gjn"
+book_url="https://www.jstor.org/stable/10.1525/j.ctv1xxxq7"
 
 #modify parent directory here
 #the book will be saved to a new directory under the parent directory
@@ -104,7 +103,7 @@ print(driver.execute_script("return navigator.userAgent;"))
 #        )
 
 #navigate to the book page        
-driver.get(url)
+driver.get(book_url)
 
 #dealing with possible recaptcha
 wait = WebDriverWait(driver, time_for_recaptcha)
@@ -162,7 +161,7 @@ for i in range(num_chapters):
 #rename the chapters
 for i in range(num_chapters):
     title_text = chapter_title_texts[i]
-    current_name = directory + url.split('/')[-1] + '.'+str(i+1)+'.pdf'
+    current_name = directory + book_url.split('/')[-1] + '.'+str(i+1)+'.pdf'
     print('rename:',current_name,' to:',title_text)
     os.rename(current_name, directory+title_text+".pdf") 
     

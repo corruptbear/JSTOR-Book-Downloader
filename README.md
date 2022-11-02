@@ -16,7 +16,7 @@ python3 -m pip install -r requirements.txt
 ```
 
 ## Usage
-1. Modify the book url and the parent directory
+1. Modify the ``book_url`` and the ``parent_directory`` variables in the script.
 2. Run the script.
 
 ## Notes
