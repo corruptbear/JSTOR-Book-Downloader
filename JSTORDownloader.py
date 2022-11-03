@@ -93,15 +93,6 @@ driver.execute_cdp_cmd('Network.setUserAgentOverride', {"userAgent": 'Mozilla/5.
 print(driver.execute_script("return navigator.userAgent;"))
 
 
-#stealth(driver,
-#        languages=["en-US", "en"],
-#        vendor="Google Inc.",
-#        platform="Win32",
-#        webgl_vendor="Intel Inc.",
-#        renderer="Intel Iris OpenGL Engine",
-#        fix_hairline=True,
-#        )
-
 #navigate to the book page        
 driver.get(book_url)
 
@@ -156,22 +147,24 @@ for i in range(num_chapters):
     wait.until(EC.presence_of_element_located((By.CLASS_NAME,"download__mount-point")))
     
     #reduce download speed to avoid trigger captcha too frequently
-    sleep(1.5)
+    sleep(1+random.random())
 
+files_to_merge = [] 
+new_directory_name = parent_directory + book_title
 #rename the chapters
 for i in range(num_chapters):
-    title_text = chapter_title_texts[i]
+    chapter_title_text = chapter_title_texts[i]
     current_name = directory + book_url.split('/')[-1] + '.'+str(i+1)+'.pdf'
-    print('rename:',current_name,' to:',title_text)
-    os.rename(current_name, directory+title_text+".pdf") 
+    print('rename:',current_name,' to:',chapter_title_text)
+    while os.path.exists(current_name)==False:
+        pass
+    os.rename(current_name, directory+chapter_title_text+".pdf") 
+    files_to_merge.append(new_directory_name + '/' +chapter_title_text+".pdf")
     
-    
+   
 #rename folder
-new_directory_name = parent_directory + book_title
 os.rename(directory, new_directory_name)
 
 #merge pdfs
 if merge:
-    files = list(filter(os.path.isfile, glob.glob(new_directory_name + "/*")))
-    files.sort(key=lambda x: os.path.getctime(x))
-    merge_JSTOR_chapters(files,new_directory_name + "/" + book_title + ".pdf")
+    merge_JSTOR_chapters(files_to_merge,new_directory_name + "/" + book_title + ".pdf")
